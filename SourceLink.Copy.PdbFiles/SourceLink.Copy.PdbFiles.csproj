@@ -6,18 +6,17 @@
   </PropertyGroup>
   <ItemGroup Label="dotnet pack instructions">
     <PackageReference Update="NETStandard.Library" PrivateAssets="all" />
-    <Content Include="SourceLink.Embed.PaketFiles.props">
+    <Content Include="SourceLink.Copy.PdbFiles.props">
       <Pack>true</Pack>
       <PackagePath>build</PackagePath>
     </Content>
-    <Content Include="SourceLink.Embed.PaketFiles.props">
+    <Content Include="SourceLink.Copy.PdbFiles.props">
       <Pack>true</Pack>
       <PackagePath>buildCrossTargeting</PackagePath>
     </Content>
-    <Content Include="SourceLink.Embed.PaketFiles.targets">
+    <Content Include="SourceLink.Copy.PdbFiles.targets">
       <Pack>true</Pack>
       <PackagePath>build</PackagePath>
     </Content>
   </ItemGroup>
-  <Import Project="..\SourceLink.Embed.Shared\SourceLink.Embed.Shared.projitems" Label="Shared" />
 </Project>

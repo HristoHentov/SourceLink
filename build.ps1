@@ -1,4 +1,4 @@
-$version = '2.4.1' # the version under development, update after a release
+$version = '2.8.0' # the version under development, update after a release
 $versionSuffix = '-a125' # manually incremented for local builds
 
 function isVersionTag($tag){
@@ -58,6 +58,10 @@ Set-Location $psscriptroot\SourceLink.Embed.PaketFiles
 dotnet restore
 dotnet $pack
 
+Set-Location $psscriptroot\SourceLink.Copy.PdbFiles
+dotnet restore
+dotnet $pack
+
 Set-Location $psscriptroot\build
 dotnet restore
 $nupkgs = ls ..\bin\*$version$versionSuffix.nupkg
@@ -67,8 +71,3 @@ foreach($nupkg in $nupkgs){
 }
 
 Set-Location $psscriptroot
-
-# testing on local nuget feed
-if (-not $env:appveyor){
-    Copy-Item .\bin\*$version$versionSuffix.nupkg C:\dotnet\nupkg\
-}

@@ -65,9 +65,13 @@ namespace SourceLink {
                     Console.WriteLine("file does not exist: " + path);
                     return 3;
                 }
-
-                using (var drp = new DebugReaderProvider(path))
+                using (var drp = DebugReaderProvider.Create(path))
                 {
+                    if(drp == null)
+                    {
+                        Console.WriteLine("unable to read debug info: " + path);
+                        return 5;
+                    }
                     var bytes = GetSourceLinkBytes(drp);
                     if (bytes == null || bytes.Length == 0)
                     {
@@ -101,8 +105,13 @@ namespace SourceLink {
                     return 3;
                 }
 
-                using (var drp = new DebugReaderProvider(path))
+                using (var drp = DebugReaderProvider.Create(path))
                 {
+                    if (drp == null)
+                    {
+                        Console.WriteLine("unable to read debug info: " + path);
+                        return 4;
+                    }
                     foreach (var doc in GetDocuments(drp))
                     {
                         Console.WriteLine("{0} {1} {2} {3}", doc.Hash.ToHex(), HashAlgorithmGuids.GetName(doc.HashAlgorithm), LanguageGuids.GetName(doc.Language), doc.Name);
@@ -133,8 +142,13 @@ namespace SourceLink {
                     return 3;
                 }
 
-                using (var drp = new DebugReaderProvider(path))
+                using (var drp = DebugReaderProvider.Create(path))
                 {
+                    if (drp == null)
+                    {
+                        Console.WriteLine("unable to read debug info: " + path);
+                        return 5;
+                    }
                     var missingDocs = new List<Document>();
                     foreach (var doc in GetDocumentsWithUrls(drp))
                     {
@@ -170,8 +184,13 @@ namespace SourceLink {
         
         public static int TestFile(string path, IAuthenticationHeaderValueProvider authenticationHeaderValueProvider = null)
         {
-            using (var drp = new DebugReaderProvider(path))
+            using (var drp = DebugReaderProvider.Create(path))
             {
+                if (drp == null)
+                {
+                    Console.WriteLine("unable to read debug info: " + path);
+                    return 5;
+                }
                 return TestFile(drp, authenticationHeaderValueProvider);
             }
         }
@@ -280,8 +299,13 @@ namespace SourceLink {
                         {
                             stream.CopyTo(ms);
                             ms.Position = 0;
-                            using (var drp = new DebugReaderProvider(file, ms))
+                            using (var drp = DebugReaderProvider.Create(file, ms))
                             {
+                                if (drp == null)
+                                {
+                                    Console.WriteLine("unable to read debug info: " + path);
+                                    return 5;
+                                }
                                 if (TestFile(drp, authenticationHeaderValueProvider) != 0)
                                 {
                                     Console.WriteLine("failed for " + file);
@@ -501,15 +525,20 @@ namespace SourceLink {
                 {
                     if (!doc.Hash.CollectionEquals(doc.UrlHash))
                     {
-                        doc.Error = "url hash does not match: " + doc.Hash.ToHex();
+                        await HashUrlCrlf(hc, doc);
+                        if (doc.Error == null)
+                        {
+                            if (!doc.Hash.CollectionEquals(doc.UrlHashCrlf))
+                            {
+                                doc.Error = "url hash does not match: " + doc.Hash.ToHex();
+                            }
+                        }
                     }
                 }
             }
-
             return doc;
         }
 
-        // TODO async
         static async Task HashUrl(HttpClient hc, Document doc)
         {
             using (var req = new HttpRequestMessage(HttpMethod.Get, doc.Url))
@@ -522,6 +551,53 @@ namespace SourceLink {
                     using (var ha = CreateHashAlgorithm(doc.HashAlgorithm))
                     {
                         doc.UrlHash = ha.ComputeHash(stream);
+                    }
+                }
+                else
+                {
+                    doc.Error = "url failed " + rsp.StatusCode + ": " + rsp.ReasonPhrase;
+                }
+            }
+        }
+
+        static async Task HashUrlCrlf(HttpClient hc, Document doc)
+        {
+            using (var req = new HttpRequestMessage(HttpMethod.Get, doc.Url))
+            using (var rsp = await hc.SendAsync(req))
+            {
+                if (rsp.IsSuccessStatusCode)
+                {
+                    using (var stream = await rsp.Content.ReadAsStreamAsync())
+                    // TODO Is it more efficient to cache?
+                    using (var ha = CreateHashAlgorithm(doc.HashAlgorithm))
+                    {
+                        var fileBytes = new byte[] { };
+                        // https://github.com/ctaggart/SourceLink/blob/v1/Exe/LineFeed.fs#L31-L50
+                        // passing UTFEncoding without the BOM set allows it to be detected
+                        // http://stackoverflow.com/a/27976558/23059
+                        using (var sr = new StreamReader(stream, new UTF8Encoding(false)))
+                        {
+                            var text = sr.ReadToEnd();
+                            var lines = text.Split(new char[] { '\n' });
+                            if (lines.Length > 0)
+                            {
+                                using (var ms = new MemoryStream())
+                                {
+                                    using (var sw = new StreamWriter(ms, sr.CurrentEncoding))
+                                    {
+                                        for (var i = 0; i < lines.Length - 1; i++)
+                                        {
+                                            sw.Write(lines[i]);
+                                            sw.Write('\r');
+                                            sw.Write('\n');
+                                        }
+                                        sw.Write(lines[lines.Length - 1]);
+                                    }
+                                    fileBytes = ms.ToArray();
+                                    doc.UrlHashCrlf = ha.ComputeHash(fileBytes);
+                                }
+                            }
+                        }
                     }
                 }
                 else

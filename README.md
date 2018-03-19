@@ -1,137 +1,93 @@
 
 # SourceLink
 <img src="https://ctaggart.github.io/SourceLink/SourceLink128.jpg" align="right">
-Source link support allows source code to be downloaded on demand while debugging. SourceLink is a set of build tools to help create and test for source link support.
 
-Additional [documentation is on the wiki](https://github.com/ctaggart/SourceLink/wiki).
+Source link support allows source code to be downloaded on demand while debugging. SourceLink is a set of build tools to help create and test for source link support. [Source link support](https://github.com/dotnet/core/blob/master/Documentation/diagnostics/source_link.md) is a developer productivity feature that allows unique information about an assembly's original source code to be embedded in its PDB during compilation.
 
-Here is the [General, Debugging, Options Dialog Box](https://docs.microsoft.com/en-us/visualstudio/debugger/general-debugging-options-dialog-box) from Visual Studio 2017:
-![image](https://cloud.githubusercontent.com/assets/80104/23337630/001cedb6-fbba-11e6-9c44-68f4c826470c.png)
+## .NET Foundation
 
-### Enable source server support
-[SourceLink v1](https://github.com/ctaggart/SourceLink/wiki/SourceLink-v1) automates [source indexing](http://msdn.microsoft.com/en-us/library/windows/hardware/ff556898.aspx) of Windows PDB files. It enables the source code repostiory to be the [source server](http://msdn.microsoft.com/en-us/library/windows/desktop/ms680641.aspx) by updating the Windows PDB files with a source index of https links. Source indexing is done by modifying the Windows PDB file after a compile.
+SourceLink is a [.NET Foundation](http://www.dotnetfoundation.org/projects) project. It [joined](http://www.dotnetfoundation.org/blog/2017/11/16/welcome-dnn-nunit-ironpython-mvvmcross-sourcelink-ilmerge-and-humanizer-to-the-net-foundation) in 2017-11.
 
-### Enable source link support
-SourceLink v2 helps enable source link support using the [Portable PDB](https://github.com/dotnet/core/blob/master/Documentation/diagnostics/portable_pdb.md) format. They are cross platform and several times smaller than Windows PDB files. The implementation and specification are open source. Source link support [has documentation](https://github.com/dotnet/core/blob/master/Documentation/diagnostics/source_link.md) and is [in the Portable PDB spec](https://github.com/dotnet/corefx/blob/master/src/System.Reflection.Metadata/specs/PortablePdb-Metadata.md#SourceLink). The source link JSON file is built before the compile and the .NET compilers embeds it in the Portable PDB file. The compilers shipped with Visual Studio 2017 and with the DotNet SDKs support the `/sourcelink` option. Here is the relevant help from the C# compiler:
-```
-. "C:\Program Files\dotnet\sdk\1.0.0\Roslyn\RunCsc.cmd" /?
+## License
 
- /debug:{full|pdbonly|portable|embedded}
-                               Specify debugging type ('full' is default,
-                               'portable' is a cross-platform format,
-                               'embedded' is a cross-platform format embedded into
-                               the target .dll or .exe)
-                               
- /embed                        Embed all source files in the PDB.
- 
- /embed:<file list>            Embed specific files in the PDB
- 
- /sourcelink:<file>            Source link info to embed into Portable PDB.
-```
+SourceLink is licensed under the [MIT license](LICENSE).
 
 # Quick Start
 
-The [source link documention](https://github.com/dotnet/core/blob/master/Documentation/diagnostics/source_link.md) shows how to embed a source link file by running `git` commands. That is exactly how the [targets](https://github.com/ctaggart/SourceLink/blob/v2/SourceLink.Create.CommandLine/SourceLink.Create.CommandLine.targets) file for `SourceLink.Create.CommandLine` works. Simply add a `PackageReference`. A common way to do with is by adding it to your projects in a `Directory.Build.props`:
+![image](https://cloud.githubusercontent.com/assets/80104/23337630/001cedb6-fbba-11e6-9c44-68f4c826470c.png)
+
+The [source link support documention](https://github.com/dotnet/core/blob/master/Documentation/diagnostics/source_link.md) shows how to embed a source link file by running `git` commands. That is exactly how the [targets](SourceLink.Create.CommandLine/SourceLink.Create.CommandLine.targets) file for `SourceLink.Create.CommandLine` works. Add this `PackageReference` to each project that you wish to enable source link support for. See the wiki if you are [using Paket](https://github.com/ctaggart/SourceLink/wiki/Paket). A common way to add this for multiple projects is to use a `Directory.Build.props`:
 ``` xml
 <Project>
   <ItemGroup>
-    <PackageReference Include="SourceLink.Create.CommandLine" Version="2.4.0" PrivateAssets="All" /> 
+    <PackageReference Include="SourceLink.Create.CommandLine" Version="2.8.0" PrivateAssets="All" /> 
   </ItemGroup>
 </Project>
 ```
 
-If you are building on Windows, make sure that you configure git to checkout files with [core.autocrlf input](https://github.com/ctaggart/SourceLink/wiki/Line-Endings).
+Without any additional configuration `SourceLink.Create.CommandLine` will work with GitHub and Bitbucket cloned repositories. See the wiki for [additional options](https://github.com/ctaggart/SourceLink/wiki#sourcelinkcreatecommandline).
 
-By default `SourceLink.Create.CommandLine` will try to process GitHub and BitBucket cloned repositories. You can specify a specific server type by setting the `SourceLinkServerType` MSBuild property like `/p:SourceLinkServerType=GitHub`, `/p:SourceLinkServerType=BitBucket`, `/p:SourceLinkServerType=BitBucketServer` or `/p:SourceLinkServerType=GitLab`.
-
-You can control when it runs by setting the `SourceLinkCreate` property. That property is set to `true` by default on build servers that set `CI` or `BUILD_NUMBER` environment variables. In general these tools are meant to be run only on build servers, but you can test locally by setting an MSBuild property like `/p:ci=true` or `/p:SourceLinkCreate=true`.
+You can control when it runs by setting the MSBuild property `/p:SourceLinkCreate=true`.
 
 If you have a dotnet project, you can test locally with:
 ``` ps1
 dotnet restore
-dotnet build /p:ci=true /v:n
+dotnet build /p:SourceLinkCreate=true /v:n
 ```
 With an full framework project, you can test locally with:
 ``` ps1
 msbuild /t:restore
-msbuild /t:rebuild /p:ci=true /v:n
+msbuild /t:rebuild /p:SourceLinkCreate=true /v:n
 ```
 
-## examples
-- [Rx.NET](https://github.com/ctaggart/SourceLink/issues/167#issuecomment-297423617)
-- [ASP.NET MVC](https://github.com/ctaggart/SourceLink/issues/173)
+# Package PDB in nupkg
+As of SourceLink 2.7, the pdb files will automatically be included in your nupkg if you use `dotnet pack` or `msbuild /t:pack`. This makes the MSBuild properties `/p:IncludeSymbols=true` and `/p:IncludeSource=true` obsolete and you may safely disable those options. 
 
 # Test
 
-`dotnet sourcelink test` is a tool you can use to test that the source link works. Source link support and this tool are not tied to git at all. It makes sure all links work for every source file in the PDB that is not embedded. You can test a nupkg, a pdb, or a dll if the pdb is embedded. Run `dotnet sourcelink` for a list of other diagnostic commands and additional help.
+`dotnet sourcelink test` is a command you can use to test that the source link works. It makes sure all links work for every source file that is not embedded in the PDB. You can test a nupkg, a pdb, or a dll if the pdb is embedded. Run `dotnet sourcelink` for a list of other diagnostic commands and additional help.
 
 Install by adding:
 ``` xml
-<DotNetCliToolReference Include="dotnet-sourcelink" Version="2.4.0" />
-```
-
-## examples
-- [SourceLink build.ps1](https://github.com/ctaggart/SourceLink/blob/v2/build.ps1#L45-L51)
-- [octokit.net using Cake](https://github.com/ctaggart/SourceLink/issues/174)
-
-`dotnet sourcelink test` may also be run by using the `SourceLink.Test` MSBuild targets.
-``` xml
-<PackageReference Include="SourceLink.Test" Version="2.4.0" PrivateAssets="all" />
-```
-Just like the `SourceLinkCreate` property, you can control when it is enabled by setting the `SourceLinkTest` property.
-
-# dotnet sourcelink-git
-
-Please follow the quick start if you are just getting started. `SourceLink.Create.CommandLine` uses the `git` commandline by default, does not use `dotnet`, and has been easier for new users to understand.
-
-`SourceLink.Create.GitHub`, `SourceLink.Create.BitBucket` and `SourceLink.Create.BitBucketServer` use `dotnet sourcelink-git`, which accesses the git information using [libgit2sharp](https://github.com/libgit2/libgit2sharp). This allows some additional features. It verifies that all of the source files are in the git repository and that their checksums match. If checksums do not match due to line endings, it will automatically fix them to match the git repository like endings of `lf`. If a source file's checksum still does not match, it will be embedded. If the source file is not in the git repository, it will be embedded. All of these settings are configurable.
-
-``` xml
-<PackageReference Include="SourceLink.Create.GitHub" Version="2.4.0" PrivateAssets="all" />
-<DotNetCliToolReference Include="dotnet-sourcelink-git" Version="2.4.0" />
+<DotNetCliToolReference Include="dotnet-sourcelink" Version="2.8.0" />
 ```
 
 # Embedding Source Files
 
-For source files are not committed to the repository, it is helpful to embed them, so that they are available while debugging. Source files are not committed often when generated or downloaded from elsewhere.
+For source files are not committed to the repository, it is helpful to embed them, so that they are available while debugging. Source files are not committed often when generated or downloaded from elsewhere. Here is an [example of specifying files to be embedded](https://github.com/fsharp/FSharp.Compiler.Service/pull/842/files#diff-5ea2a1626f193409e8b1742db0e0c22fR669).
 
 ## All Source Files
 
-If you just want to embed all of the source files in the pdb and not use source link, add this package:
+If you just want to embed all of the source files in the pdb and not use source link support, add this package:
 ``` xml
-<PackageReference Include="SourceLink.Embed.AllSourceFiles" Version="2.4.0" PrivateAssets="all" />
+<PackageReference Include="SourceLink.Embed.AllSourceFiles" Version="2.8.0" PrivateAssets="all" />
 ```
 
-## Paket Files
-
-If you are using `SourceLink.Create.CommandLine` and [Paket](https://fsprojects.github.io/Paket/)'s support for including source code that is not in your repository, you can embed those files in the pdb with:
-``` xml
-<PackageReference Include="SourceLink.Embed.PaketFiles" Version="2.4.0" PrivateAssets="all" />
-```
+# Documentation
+Additional [documentation is on the wiki](https://github.com/ctaggart/SourceLink/wiki).
 
 # Known Issues
 
-Please vote for all of these issues:
+- New project system does not copy PDBs from packages when targeting .NET Framework
 
-- GitHub NuGet: [msbuild /t:Pack always creates seperate symbols package](https://github.com/NuGet/Home/issues/4142)
+  Add `SourceLink.Copy.PdbFiles` to your project file. See [#313](https://github.com/ctaggart/SourceLink/issues/313) for details.
+
+``` xml
+<Project>
+  <ItemGroup>
+    <PackageReference Include="SourceLink.Copy.PdbFiles" Version="2.8.0" PrivateAssets="All" /> 
+  </ItemGroup>
+</Project>
+```
+
+- Private repositories are not supported
+
+  Visual Studio 2017 15.6 may add support. Please vote for User Voice: [Debugger should support authentication with SourceLink](https://visualstudio.uservoice.com/forums/121579-visual-studio-ide/suggestions/19107784-debugger-should-support-authentication-with-source).
+
+- Visual Studio does not debug into embedded source files
   
-  `dotnet pack` and `msbuild /t:pack` need to support more easily packaging portable pdb files. Currently, the recommended way of including them is to use the extension point designed for including content that is different for each target framework:
+  Update to Visual Studio 2017 15.5 or later. Support [was added](https://visualstudio.uservoice.com/forums/121579-visual-studio-ide/suggestions/19107733-debugger-should-support-c-compiler-embed-optio).
 
-  ``` xml
-  <PropertyGroup>
-    <TargetsForTfmSpecificContentInPackage>$(TargetsForTfmSpecificContentInPackage);IncludePDBsInPackage</TargetsForTfmSpecificContentInPackage>
-  </PropertyGroup>
-  <Target Name="IncludePDBsInPackage" Condition="'$(IncludeBuildOutput)' != 'false'">
-    <ItemGroup>
-      <TfmSpecificPackageFile Include="$(OutputPath)\$(AssemblyName).pdb" PackagePath="lib\$(TargetFramework)" />
-    </ItemGroup>
-  </Target>
-  ```
-
-- Visual Studio User Voice: [Debugger should support C# compiler '/embed' option](https://visualstudio.uservoice.com/forums/121579-visual-studio-ide/suggestions/19107733-debugger-should-support-c-compiler-embed-optio)
-
-  The Visual Studio 2017 debugger does not currently look for embedded source files.
-
-- Visual Studio User Voice: [Debugger should support authentication with SourceLink](https://visualstudio.uservoice.com/forums/121579-visual-studio-ide/suggestions/19107784-debugger-should-support-authentication-with-source)
-
-   In order to use source link with private GitHub repositories and other private repositories, it needs to support authentication.
+# Community
+This project has adopted the code of conduct defined by the [Contributor Covenant](http://contributor-covenant.org/)
+to clarify expected behavior in our community. For more information, see the [.NET Foundation Code of Conduct](http://www.dotnetfoundation.org/code-of-conduct).
